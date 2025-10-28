@@ -11,12 +11,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Configure multer for file uploads
+// Use /tmp for serverless environments (Vercel, AWS Lambda, etc.)
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = 'uploads/';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir);
-    }
+    // Use /tmp directory for serverless environments
+    const uploadDir = '/tmp/';
+    // /tmp is always writable in serverless environments
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
