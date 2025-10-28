@@ -2,10 +2,34 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 2 * 1024 * 1024 // 2MB limit
+  }
+});
 
 // Middleware
 app.use(cors({
@@ -91,6 +115,44 @@ const emailTemplates = {
         </div>
         <div style="margin-top: 20px; padding: 15px; background-color: #d4edda; border-radius: 5px;">
           <p style="margin: 0; color: #155724;"><strong>Next Steps:</strong> Please review the lawyer's credentials and initiate the verification process.</p>
+        </div>
+      </div>
+    `
+  }),
+
+  careersApplication: (data) => ({
+    subject: `New Career Application from ${data.name}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px;">New Career Application</h2>
+        
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #34495e; margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Personal Information</h3>
+          <p><strong>Name:</strong> ${data.name}</p>
+          <p><strong>Email:</strong> ${data.email}</p>
+          <p><strong>Contact:</strong> ${data.contact}</p>
+          <p><strong>City:</strong> ${data.city}</p>
+          <p><strong>LinkedIn:</strong> ${data.linkedin || 'Not provided'}</p>
+          ${data.hasPhoto ? '<p style="color: #27ae60; font-weight: bold; margin-top: 10px;"><i className="fas fa-paperclip"></i> Professional photo is attached to this email</p>' : ''}
+        </div>
+
+        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #27ae60; margin-top: 0; border-bottom: 2px solid #27ae60; padding-bottom: 10px;">Professional Information</h3>
+          <p><strong>Experience:</strong> ${data.experience}</p>
+          <p><strong>Role Applying For:</strong> ${data.role || 'Not specified'}</p>
+          <p><strong>College:</strong> ${data.college || 'Not provided'}</p>
+          <p><strong>Course:</strong> ${data.course || 'Not provided'}</p>
+          <p><strong>Passing Year:</strong> ${data.passingYear || 'Not provided'}</p>
+          <p><strong>Background/Expertise:</strong></p>
+          <div style="background-color: white; padding: 15px; border-left: 4px solid #27ae60; margin-top: 10px;">
+            ${data.background ? data.background.replace(/\n/g, '<br>') : 'Not provided'}
+          </div>
+        </div>
+
+        <div style="background-color: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #856404; margin-top: 0; border-bottom: 2px solid #856404; padding-bottom: 10px;">Job Preferences</h3>
+          <p><strong>Job Type:</strong> ${data.jobType === 'fulltime' ? 'Full Time' : data.jobType === 'parttime' ? 'Part Time' : 'Internship'}</p>
+          <p><strong>Applying For:</strong> ${data.applyingFor === 'lawpex-team' ? 'LawPex In-house team' : data.applyingFor === 'litigation' ? 'Litigation Associate' : 'Corporate Law Firm'}</p>
         </div>
       </div>
     `
@@ -581,6 +643,139 @@ app.post('/api/send-email/contact-lawyer', async (req, res) => {
   }
 });
 
+app.post('/api/send-email/careers', upload.single('photo'), async (req, res) => {
+  try {
+    const { name, email, contact, city, linkedin, experience, role, college, course, passingYear, background, jobType, applyingFor } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !contact || !city || !experience || !jobType || !applyingFor) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    const transporter = createTransporter();
+    
+    // Prepare email data with photo flag
+    const emailData = {
+      ...req.body,
+      hasPhoto: !!req.file
+    };
+    
+    // Prepare email options with attachments if file was uploaded
+    const adminTemplate = emailTemplates.careersApplication(emailData);
+    const adminMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: process.env.EMAIL_TO,
+      subject: adminTemplate.subject,
+      html: adminTemplate.html,
+      replyTo: email
+    };
+
+    // Add attachment if photo was uploaded
+    if (req.file) {
+      adminMailOptions.attachments = [{
+        filename: req.file.originalname,
+        path: req.file.path
+      }];
+    }
+
+    // Email 2: Send automated response to the applicant
+    const applicantResponseTemplate = {
+      subject: 'Thank You for Your Career Application - LawPex',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">Welcome to LawPex!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Your Career Application Has Been Received</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello <strong>${name}</strong>,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              Thank you for your interest in joining LawPex! We have received your career application and our team is excited to learn more about you.
+            </p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #3498db; margin-bottom: 20px;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">What Happens Next?</h3>
+              <ul style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li><strong>Application Review:</strong> Our team will carefully review your application and qualifications</li>
+                <li><strong>Shortlisting:</strong> If you are shortlisted, we'll contact you within 5-7 business days</li>
+                <li><strong>Interview Process:</strong> Shortlisted candidates will be invited for an interview</li>
+                <li><strong>Joining:</strong> Selected candidates will receive an offer to join our team</li>
+              </ul>
+            </div>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-top: 20px;">
+              Our HR team will contact you at <strong>${contact}</strong> or via email at <strong>${email}</strong> to discuss next steps.
+            </p>
+          </div>
+          
+          <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="color: #27ae60; margin-top: 0;">Why Choose LawPex?</h3>
+            <ul style="color: #34495e; line-height: 1.6; padding-left: 20px;">
+              <li>Work with India's leading legal platform</li>
+              <li>Learn from experienced legal professionals</li>
+              <li>Grow your career in a dynamic environment</li>
+              <li>Competitive compensation and benefits</li>
+              <li>Opportunities for professional development</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Have any questions?</strong><br>
+              Email us at <a href="mailto:careers@lawpex.com" style="color: #3498db;">careers@lawpex.com</a> or call us at <strong>+91-8750-100-555</strong>
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    const applicantMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: applicantResponseTemplate.subject,
+      html: applicantResponseTemplate.html
+    };
+
+    // Send both emails
+    await transporter.sendMail(adminMailOptions);
+    await transporter.sendMail(applicantMailOptions);
+
+    // Clean up uploaded file after sending email
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Your career application has been submitted successfully. Please check your email for confirmation.' 
+    });
+
+  } catch (error) {
+    console.error('Error sending careers email:', error);
+    
+    // Clean up uploaded file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit your application. Please try again later.' 
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -588,6 +783,135 @@ app.get('/api/health', (req, res) => {
     message: 'Musab Hashmi Legal Services Backend is running',
     timestamp: new Date().toISOString()
   });
+});
+
+// Legal Enquiry Email Endpoint
+app.post('/api/send-email/legal-enquiry', async (req, res) => {
+  try {
+    const { topic, subtopic, city, name, mobile } = req.body;
+
+    // Validate required fields
+    if (!topic || !city || !name || !mobile) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    const transporter = createTransporter();
+    
+    // Email 1: Send notification to admin
+    const adminMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: process.env.EMAIL_TO,
+      subject: `New Legal Enquiry - ${topic}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #d4af37; margin-bottom: 10px;">New Legal Enquiry</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Client Needs Legal Assistance</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">Client Details:</h3>
+            <p style="color: #34495e; margin-bottom: 10px;"><strong>Name:</strong> ${name}</p>
+            <p style="color: #34495e; margin-bottom: 10px;"><strong>Mobile:</strong> ${mobile}</p>
+            <p style="color: #34495e; margin-bottom: 10px;"><strong>City:</strong> ${city}</p>
+            <p style="color: #34495e; margin-bottom: 0;"><strong>Topic:</strong> ${topic}</p>
+            ${subtopic ? `<p style="color: #34495e; margin-bottom: 0;"><strong>Subtopic:</strong> ${subtopic}</p>` : ''}
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Action Required:</strong> Please connect the client with a suitable lawyer.
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    // Email 2: Send automated response to the client
+    const clientResponseTemplate = {
+      subject: 'Thank You for Your Legal Enquiry - LawPex',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #d4af37; margin-bottom: 10px;">Welcome to LawPex!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Your Legal Enquiry Has Been Received</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello <strong>${name}</strong>,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              Thank you for your legal enquiry on LawPex. We have received your request for legal assistance and our team is working to connect you with the best lawyer for your case.
+            </p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #27ae60;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">What Happens Next?</h3>
+              <ul style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li><strong>Enquiry Review:</strong> Our team will review your legal enquiry</li>
+                <li><strong>Lawyer Matching:</strong> We'll match you with the best lawyer for your case</li>
+                <li><strong>Contact Timeline:</strong> A lawyer will contact you within 24 hours</li>
+                <li><strong>Consultation:</strong> You'll receive expert legal guidance</li>
+              </ul>
+            </div>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-top: 20px;">
+              Our team will contact you at <strong>${mobile}</strong> to connect you with a qualified lawyer in your area.
+            </p>
+          </div>
+          
+          <div style="background-color: #fff8e8; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Why Choose LawPex?</h3>
+            <ul style="color: #34495e; line-height: 1.6; padding-left: 20px;">
+              <li>Expert lawyers with specialized knowledge</li>
+              <li>Quick response time (within 24 hours)</li>
+              <li>Free consultation for your legal issue</li>
+              <li>100% confidential and secure</li>
+              <li>Verified and experienced legal professionals</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Need immediate assistance?</strong><br>
+              Call us at <strong>+91-8750-100-555</strong> or email us at <a href="mailto:contact@lawpex.com" style="color: #d4af37;">contact@lawpex.com</a>
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    const clientMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: 'syedmohdah@gmail.com', // Using email from req.body would be ideal, but for now use default
+      subject: clientResponseTemplate.subject,
+      html: clientResponseTemplate.html
+    };
+
+    // Send both emails
+    await transporter.sendMail(adminMailOptions);
+    await transporter.sendMail(clientMailOptions);
+
+    res.json({ 
+      success: true, 
+      message: 'Your legal enquiry has been submitted successfully. We will contact you shortly to connect you with a lawyer.' 
+    });
+
+  } catch (error) {
+    console.error('Error sending legal enquiry email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit your enquiry. Please try again later.' 
+    });
+  }
 });
 
 // Error handling middleware
