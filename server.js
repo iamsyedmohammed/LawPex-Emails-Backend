@@ -952,10 +952,13 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Musab Hashmi Legal Services Backend running on port ${PORT}`);
-  console.log(`📧 Email service configured with: ${process.env.EMAIL_USER}`);
-  console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
-});
+// Only start the server if not in Vercel serverless environment
+if (process.env.VERCEL !== '1' && !process.env.VERCEL_ENV) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Musab Hashmi Legal Services Backend running on port ${PORT}`);
+    console.log(`📧 Email service configured with: ${process.env.EMAIL_USER}`);
+    console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  });
+}
 
 module.exports = app;
