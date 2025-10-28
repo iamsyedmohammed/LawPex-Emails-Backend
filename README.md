@@ -9,7 +9,7 @@ This backend server handles email functionality for all forms on the Musab Hashm
 - **Lawyer Signup Form**: Handles lawyer registration requests
 - **Contact Lawyer Form**: Direct contact requests for Advocate Musab Hashmi
 
-## Setup Instructions
+## Setup / Instructions
 
 ### 1. Install Dependencies
 
