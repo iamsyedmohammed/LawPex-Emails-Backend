@@ -645,6 +645,10 @@ app.post('/api/send-email/contact-lawyer', async (req, res) => {
 
 app.post('/api/send-email/careers', upload.single('photo'), async (req, res) => {
   try {
+    console.log('Careers form submission received');
+    console.log('Request body:', req.body);
+    console.log('Has file:', !!req.file);
+    
     const { name, email, contact, city, linkedin, experience, role, college, course, passingYear, background, jobType, applyingFor } = req.body;
 
     // Validate required fields
@@ -667,7 +671,7 @@ app.post('/api/send-email/careers', upload.single('photo'), async (req, res) => 
     const adminTemplate = emailTemplates.careersApplication(emailData);
     const adminMailOptions = {
       from: process.env.EMAIL_FROM,
-      to: process.env.EMAIL_TO,
+      to: email, // Temporarily sending to applicant for testing
       subject: adminTemplate.subject,
       html: adminTemplate.html,
       replyTo: email
@@ -748,8 +752,13 @@ app.post('/api/send-email/careers', upload.single('photo'), async (req, res) => 
     };
 
     // Send both emails
+    console.log('Sending admin email to:', email);
     await transporter.sendMail(adminMailOptions);
+    console.log('Admin email sent successfully');
+    
+    console.log('Sending applicant email to:', email);
     await transporter.sendMail(applicantMailOptions);
+    console.log('Applicant email sent successfully');
 
     // Clean up uploaded file after sending email
     if (req.file && fs.existsSync(req.file.path)) {
@@ -763,6 +772,8 @@ app.post('/api/send-email/careers', upload.single('photo'), async (req, res) => 
 
   } catch (error) {
     console.error('Error sending careers email:', error);
+    console.error('Error details:', error.message);
+    console.error('Stack trace:', error.stack);
     
     // Clean up uploaded file on error
     if (req.file && fs.existsSync(req.file.path)) {
@@ -771,7 +782,7 @@ app.post('/api/send-email/careers', upload.single('photo'), async (req, res) => 
     
     res.status(500).json({ 
       success: false, 
-      message: 'Failed to submit your application. Please try again later.' 
+      message: `Failed to submit your application: ${error.message}` 
     });
   }
 });
@@ -788,7 +799,7 @@ app.get('/api/health', (req, res) => {
 // Legal Enquiry Email Endpoint
 app.post('/api/send-email/legal-enquiry', async (req, res) => {
   try {
-    const { topic, subtopic, city, name, mobile } = req.body;
+    const { topic, subtopic, city, name, mobile, email } = req.body;
 
     // Validate required fields
     if (!topic || !city || !name || !mobile) {
@@ -891,14 +902,18 @@ app.post('/api/send-email/legal-enquiry', async (req, res) => {
 
     const clientMailOptions = {
       from: process.env.EMAIL_FROM,
-      to: 'syedmohdah@gmail.com', // Using email from req.body would be ideal, but for now use default
+      to: email || 'syedmohdah@gmail.com',
       subject: clientResponseTemplate.subject,
       html: clientResponseTemplate.html
     };
 
-    // Send both emails
+    // Send admin email
     await transporter.sendMail(adminMailOptions);
-    await transporter.sendMail(clientMailOptions);
+    
+    // Only send client email if they provided an email address
+    if (email) {
+      await transporter.sendMail(clientMailOptions);
+    }
 
     res.json({ 
       success: true, 
