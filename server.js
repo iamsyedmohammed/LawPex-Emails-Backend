@@ -671,7 +671,7 @@ app.post('/api/send-email/careers', upload.single('photo'), async (req, res) => 
     const adminTemplate = emailTemplates.careersApplication(emailData);
     const adminMailOptions = {
       from: process.env.EMAIL_FROM,
-      to: email, // Temporarily sending to applicant for testing
+      to: process.env.EMAIL_TO, // send to configured admin mailbox in production
       subject: adminTemplate.subject,
       html: adminTemplate.html,
       replyTo: email
@@ -751,14 +751,20 @@ app.post('/api/send-email/careers', upload.single('photo'), async (req, res) => 
       html: applicantResponseTemplate.html
     };
 
-    // Send both emails
-    console.log('Sending admin email to:', email);
+    // Send admin email
+    console.log('Sending admin email to:', process.env.EMAIL_TO);
     await transporter.sendMail(adminMailOptions);
     console.log('Admin email sent successfully');
     
-    console.log('Sending applicant email to:', email);
-    await transporter.sendMail(applicantMailOptions);
-    console.log('Applicant email sent successfully');
+    // Send applicant email only if applicant email looks valid
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email && emailRegex.test(email)) {
+      console.log('Sending applicant email to:', email);
+      await transporter.sendMail(applicantMailOptions);
+      console.log('Applicant email sent successfully');
+    } else {
+      console.warn('Applicant email missing or invalid, skipping applicant email send:', email);
+    }
 
     // Clean up uploaded file after sending email
     if (req.file && fs.existsSync(req.file.path)) {
