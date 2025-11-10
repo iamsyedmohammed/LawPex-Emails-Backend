@@ -33,7 +33,7 @@ const upload = multer({
 
 // Middleware
 app.use(cors({
-  origin: true,  // Allow all origins
+  origin: process.env.FRONTEND_URL || true,
   credentials: true
 }));
 app.use(bodyParser.json());
@@ -156,7 +156,60 @@ const emailTemplates = {
         </div>
       </div>
     `
-  })
+  }),
+
+  poshTraining: (data) => {
+    // Determine form type and title
+    const formTypeLabels = {
+      'posh-training-main': 'Main Contact Form',
+      'posh-training-popup': 'Popup Consultation Form',
+      'posh-training-about-main': 'About Page Contact Form',
+      'posh-training-about-popup': 'About Page Popup Form',
+      'posh-training-features-main': 'Features Page Contact Form',
+      'posh-training-features-popup': 'Features Page Popup Form',
+      'posh-training-pricing-main': 'Pricing Page Contact Form',
+      'posh-training-pricing-popup': 'Pricing Page Popup Form',
+      'posh-training-updates-main': 'Updates Page Contact Form',
+      'posh-training-updates-popup': 'Updates Page Popup Form'
+    };
+    
+    const formTitle = formTypeLabels[data.formType] || 'POSH Training Form';
+    
+    return {
+      subject: `New POSH Training Request - ${formTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2c3e50; border-bottom: 3px solid #d4af37; padding-bottom: 10px;">New POSH Training Request</h2>
+          
+          <div style="background-color: #fff8e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d4af37;">
+            <p style="margin: 0; color: #856404;"><strong>Form Type:</strong> ${formTitle}</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #34495e; margin-top: 0; border-bottom: 2px solid #d4af37; padding-bottom: 10px;">Contact Information</h3>
+            ${data.name ? `<p><strong>Name:</strong> ${data.name}</p>` : ''}
+            <p><strong>Email:</strong> ${data.email}</p>
+            <p><strong>Mobile Number:</strong> ${data.mobile}</p>
+            ${data.companyName ? `<p><strong>Company Name:</strong> ${data.companyName}</p>` : ''}
+            ${data.numberOfEmployees ? `<p><strong>Number of Employees:</strong> ${data.numberOfEmployees}</p>` : ''}
+          </div>
+          
+          ${data.message ? `
+          <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #27ae60; margin-top: 0; border-bottom: 2px solid #27ae60; padding-bottom: 10px;">Message</h3>
+            <div style="background-color: white; padding: 15px; border-left: 4px solid #27ae60; margin-top: 10px;">
+              ${data.message.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #856404;"><strong>Action Required:</strong> Please contact the client to discuss their POSH compliance requirements and provide a consultation.</p>
+          </div>
+        </div>
+      `
+    };
+  }
 };
 
 // Routes
@@ -506,7 +559,7 @@ app.post('/api/send-email/lawyer-signup', async (req, res) => {
 
 app.post('/api/send-email/contact-lawyer', async (req, res) => {
   try {
-    const { lawyerName, lawyerPhone, clientName, clientEmail, clientPhone, clientCity, subject, message } = req.body;
+    const { lawyerName, lawyerPhone, clientName, clientEmail, clientPhone, clientCity, category, subIssue, comments } = req.body;
 
     // Validate required fields
     if (!lawyerName || !clientName || !clientEmail || !clientPhone) {
@@ -537,6 +590,9 @@ app.post('/api/send-email/contact-lawyer', async (req, res) => {
             <p><strong>Email:</strong> ${clientEmail}</p>
             <p><strong>Phone:</strong> ${clientPhone}</p>
             <p><strong>City:</strong> ${clientCity || 'Not provided'}</p>
+            ${category ? `<p><strong>Category:</strong> ${category}</p>` : ''}
+            ${subIssue ? `<p><strong>Sub Issue:</strong> ${subIssue}</p>` : ''}
+            ${comments ? `<p><strong>Comments:</strong> ${comments.replace(/\n/g, '<br>')}</p>` : ''}
           </div>
           
           <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
@@ -572,6 +628,13 @@ app.post('/api/send-email/contact-lawyer', async (req, res) => {
             <p style="color: #34495e; line-height: 1.6; margin-bottom: 20px;">
               Thank you for your interest in contacting <strong>${lawyerName}</strong>. You can now reach out to them directly using the contact information provided below.
             </p>
+            ${category || subIssue ? `
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #27ae60; margin-bottom: 20px;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">Your Case Summary</h3>
+              ${category ? `<p style="margin:0 0 6px 0;"><strong>Category:</strong> ${category}</p>` : ''}
+              ${subIssue ? `<p style="margin:0;"><strong>Issue:</strong> ${subIssue}</p>` : ''}
+              ${comments ? `<p style="margin-top:10px;"><strong>Comments:</strong> ${comments.replace(/\n/g, '<br>')}</p>` : ''}
+            </div>` : ''}
             
             <div style="background-color: #d4af37; padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center; box-shadow: 0 5px 15px rgba(212, 175, 55, 0.3);">
               <h2 style="color: #000; margin-top: 0; margin-bottom: 15px; font-size: 24px;">📞 Lawyer Contact Number</h2>
@@ -800,6 +863,167 @@ app.get('/api/health', (req, res) => {
     message: 'Musab Hashmi Legal Services Backend is running',
     timestamp: new Date().toISOString()
   });
+});
+
+// POSH Training Email Endpoint
+app.post('/api/send-email/posh-training', async (req, res) => {
+  try {
+    const { name, email, mobile, companyName, numberOfEmployees, message, formType } = req.body;
+
+    // Validate required fields based on form type
+    let validationErrors = [];
+    
+    if (!email || !mobile) {
+      validationErrors.push('Email and mobile number are required');
+    }
+    
+    // For popup forms, companyName is required
+    if (formType && formType.includes('popup') && !companyName) {
+      validationErrors.push('Company name is required for popup forms');
+    }
+    
+    // For main forms, name is required
+    if (formType && (formType.includes('main') || formType === 'posh-training-main') && !name) {
+      validationErrors.push('Name is required for main forms');
+    }
+    
+    // For main form on home page, numberOfEmployees is required
+    if (formType === 'posh-training-main' && !numberOfEmployees) {
+      validationErrors.push('Number of employees is required');
+    }
+
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: validationErrors.join(', ') 
+      });
+    }
+
+    const transporter = createTransporter();
+    
+    // Email 1: Send notification to admin
+    const adminTemplate = emailTemplates.poshTraining(req.body);
+    const adminMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: process.env.EMAIL_TO,
+      subject: adminTemplate.subject,
+      html: adminTemplate.html,
+      replyTo: email
+    };
+
+    // Email 2: Send automated response to the client
+    const formTypeLabels = {
+      'posh-training-main': 'Main Contact Form',
+      'posh-training-popup': 'Popup Consultation',
+      'posh-training-about-main': 'About Page Contact',
+      'posh-training-about-popup': 'About Page Consultation',
+      'posh-training-features-main': 'Features Page Contact',
+      'posh-training-features-popup': 'Features Page Consultation',
+      'posh-training-pricing-main': 'Pricing Page Contact',
+      'posh-training-pricing-popup': 'Pricing Page Consultation',
+      'posh-training-updates-main': 'Updates Page Contact',
+      'posh-training-updates-popup': 'Updates Page Consultation'
+    };
+    
+    const formTitle = formTypeLabels[formType] || 'POSH Training Request';
+    const clientName = name || companyName || 'Valued Client';
+    
+    const clientResponseTemplate = {
+      subject: 'Thank You for Your POSH Training Request - LawPex',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #d4af37; margin-bottom: 10px;">Welcome to LawPex POSH Training!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Your Request Has Been Received</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello <strong>${clientName}</strong>,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              Thank you for your interest in POSH Training and Compliance solutions from LawPex. We have received your ${formTitle.toLowerCase()} request and our team is excited to help your organization achieve full POSH compliance.
+            </p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #d4af37; margin-bottom: 20px;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">What Happens Next?</h3>
+              <ul style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li><strong>Request Review:</strong> Our POSH compliance experts will review your requirements</li>
+                <li><strong>Consultation Call:</strong> We'll contact you within 24 hours to discuss your needs</li>
+                <li><strong>Customized Solution:</strong> We'll provide a tailored POSH compliance package</li>
+                <li><strong>Implementation:</strong> Our team will guide you through the entire process</li>
+              </ul>
+            </div>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-top: 20px;">
+              Our POSH compliance team will contact you at <strong>${mobile}</strong> or via email at <strong>${email}</strong> to schedule a complimentary consultation and discuss how we can help your organization.
+            </p>
+          </div>
+          
+          <div style="background-color: #fff8e8; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Our POSH Training Services Include:</h3>
+            <ul style="color: #34495e; line-height: 1.6; padding-left: 20px;">
+              <li>POSH Policy Drafting & Review</li>
+              <li>Internal Complaints Committee (ICC) Constitution</li>
+              <li>Employee Training & Awareness Programs</li>
+              <li>ICC Member Training & Orientation</li>
+              <li>External ICC Member Appointment</li>
+              <li>Annual Compliance Report Preparation</li>
+              <li>Digital POSH Compliance Platform</li>
+            </ul>
+          </div>
+          
+          <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="color: #27ae60; margin-top: 0;">Why Choose LawPex for POSH Compliance?</h3>
+            <ul style="color: #34495e; line-height: 1.6; padding-left: 20px;">
+              <li>Registered with Ministry of Women & Child Development, Government of India</li>
+              <li>300+ compliances completed successfully</li>
+              <li>100,000+ employees trained</li>
+              <li>500+ workplaces sensitized</li>
+              <li>Expert legal professionals with extensive POSH expertise</li>
+              <li>Cost-effective and time-efficient solutions</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Need immediate assistance?</strong><br>
+              Call us at <strong>+91-9810257760</strong> or email us at <a href="mailto:corporate@lawpex.com" style="color: #d4af37;">corporate@lawpex.com</a>
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com<br>
+              POSH Compliance Division
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    const clientMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: clientResponseTemplate.subject,
+      html: clientResponseTemplate.html
+    };
+
+    // Send both emails
+    await transporter.sendMail(adminMailOptions);
+    await transporter.sendMail(clientMailOptions);
+
+    res.json({ 
+      success: true, 
+      message: 'Your POSH training request has been submitted successfully. Please check your email for confirmation and next steps.' 
+    });
+
+  } catch (error) {
+    console.error('Error sending POSH training email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit your request. Please try again later.' 
+    });
+  }
 });
 
 // Legal Enquiry Email Endpoint
