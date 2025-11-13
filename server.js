@@ -209,6 +209,98 @@ const emailTemplates = {
         </div>
       `
     };
+  },
+
+  lawyerWelcome: (data) => {
+    const isGoogleLogin = data.authType === 'google';
+    const loginUrl = process.env.FRONTEND_URL === '*' 
+      ? 'https://darkseagreen-mink-776641.hostingersite.com/lawyer/login'
+      : `${process.env.FRONTEND_URL || 'http://localhost:3000'}/lawyer/login`;
+    
+    return {
+      subject: 'Welcome to LawPex - Your Lawyer Account is Ready!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #d4af37; margin-bottom: 10px;">Welcome to LawPex!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Your Lawyer Account Has Been Created</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello <strong>${data.lawyerName}</strong>,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              Congratulations! Your lawyer account has been successfully created on LawPex. You can now access your dashboard and start managing your profile, answering questions, and connecting with clients.
+            </p>
+            
+            ${isGoogleLogin ? `
+            <div style="background-color: #fff8e8; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #d4af37;">
+              <h3 style="color: #d4af37; margin-top: 0; margin-bottom: 15px;">🔐 Login with Google</h3>
+              <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+                Your account is configured for <strong>Google Login</strong>. To access your dashboard:
+              </p>
+              <ol style="color: #34495e; line-height: 1.8; padding-left: 20px; margin-bottom: 15px;">
+                <li>Visit the lawyer login page</li>
+                <li>Click "Sign in with Google"</li>
+                <li>Use your Google account: <strong>${data.email}</strong></li>
+                <li>You'll be automatically logged in to your dashboard</li>
+              </ol>
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="${loginUrl}" style="background-color: #d4af37; color: #000; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
+                  Go to Login Page
+                </a>
+              </div>
+            </div>
+            ` : `
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #27ae60;">
+              <h3 style="color: #27ae60; margin-top: 0; margin-bottom: 15px;">🔐 Login with Password</h3>
+              <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+                Your account is configured for <strong>Password Login</strong>. Use your email and password to access your dashboard.
+              </p>
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="${loginUrl}" style="background-color: #27ae60; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
+                  Go to Login Page
+                </a>
+              </div>
+            </div>
+            `}
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #3498db; margin-bottom: 20px;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">What You Can Do:</h3>
+              <ul style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li><strong>Manage Your Profile:</strong> Update your information, areas of expertise, and contact details</li>
+                <li><strong>Answer Questions:</strong> Respond to legal questions assigned to you</li>
+                <li><strong>View Analytics:</strong> Track your performance and client interactions</li>
+                <li><strong>Connect with Clients:</strong> Build your reputation and grow your practice</li>
+              </ul>
+            </div>
+            
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+              <h3 style="color: #27ae60; margin-top: 0;">Need Help?</h3>
+              <p style="color: #34495e; line-height: 1.6; margin-bottom: 10px;">
+                If you have any questions or need assistance, please don't hesitate to contact us:
+              </p>
+              <ul style="color: #34495e; line-height: 1.6; padding-left: 20px;">
+                <li>Email: <a href="mailto:partner@lawpex.com" style="color: #3498db;">partner@lawpex.com</a></li>
+                <li>Phone: <strong>+91-8750-100-555</strong></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              Welcome aboard! We're excited to have you as part of the LawPex community.
+            </p>
+          </div>
+        </div>
+      `
+    };
   }
 };
 
@@ -1022,6 +1114,51 @@ app.post('/api/send-email/posh-training', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to submit your request. Please try again later.' 
+    });
+  }
+});
+
+// Lawyer Welcome Email Endpoint (sent when account is created)
+app.post('/api/send-email/lawyer-welcome', async (req, res) => {
+  try {
+    const { lawyerName, email, authType } = req.body;
+
+    // Validate required fields
+    if (!lawyerName || !email || !authType) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided: lawyerName, email, authType' 
+      });
+    }
+
+    const transporter = createTransporter();
+    
+    // Send welcome email to lawyer
+    const welcomeTemplate = emailTemplates.lawyerWelcome({
+      lawyerName,
+      email,
+      authType
+    });
+    
+    const welcomeMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: welcomeTemplate.subject,
+      html: welcomeTemplate.html
+    };
+
+    await transporter.sendMail(welcomeMailOptions);
+
+    res.json({ 
+      success: true, 
+      message: 'Welcome email sent successfully to lawyer.' 
+    });
+
+  } catch (error) {
+    console.error('Error sending lawyer welcome email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to send welcome email. Please try again later.' 
     });
   }
 });
