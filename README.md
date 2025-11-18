@@ -89,6 +89,12 @@ The server will run on `http://localhost:5000`
 - **POST** `/api/send-email/contact-lawyer`
 - **Body**: `{ name, email, phone, subject, message }`
 
+#### Lawyer Welcome Email
+- **POST** `/api/send-email/lawyer-welcome`
+- **Body**: `{ lawyerName, email, authType }`
+- **Purpose**: Sends welcome email to newly created lawyer accounts
+- **Auth Types**: `"google"` or `"password"`
+
 ## Email Templates
 
 Each form has a custom HTML email template that includes:

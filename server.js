@@ -1296,6 +1296,259 @@ app.post('/api/send-email/legal-enquiry', async (req, res) => {
   }
 });
 
+// Question Assigned to Lawyer Email
+app.post('/api/send-email/question-assigned', async (req, res) => {
+  try {
+    const { lawyerName, lawyerEmail, questionId, subject, question } = req.body;
+
+    if (!lawyerName || !lawyerEmail || !questionId || !subject || !question) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    const transporter = createTransporter();
+    const frontendUrl = process.env.FRONTEND_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: lawyerEmail,
+      subject: `New Question Assigned: ${subject}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #d4af37; margin-bottom: 10px;">New Question Assigned</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">A new legal question has been assigned to you</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello <strong>${lawyerName}</strong>,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              A new legal question has been assigned to you. Please review and provide your expert answer.
+            </p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #3498db; margin-bottom: 20px;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">Question Details</h3>
+              <p style="color: #34495e; font-weight: 600; margin-bottom: 10px;">Subject: ${subject}</p>
+              <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                <p style="color: #34495e; line-height: 1.6; margin: 0;">${question}</p>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 25px;">
+              <a href="${frontendUrl}/lawyer/dashboard/questions" style="background-color: #d4af37; color: #000; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
+                View Question in Dashboard
+              </a>
+            </div>
+            
+            <div style="background-color: #fff8e8; padding: 20px; border-radius: 8px; margin-top: 25px;">
+              <h3 style="color: #d4af37; margin-top: 0;">Next Steps:</h3>
+              <ol style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li>Log in to your lawyer dashboard</li>
+                <li>Review the question details</li>
+                <li>Provide a comprehensive answer</li>
+                <li>Submit your answer for admin review</li>
+              </ol>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Question ID:</strong> #${questionId}
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com
+            </p>
+          </div>
+        </div>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    res.json({ 
+      success: true, 
+      message: 'Question assignment email sent successfully to lawyer.' 
+    });
+
+  } catch (error) {
+    console.error('Error sending question assigned email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to send email. Please try again later.' 
+    });
+  }
+});
+
+// Question Submitted Confirmation Email
+app.post('/api/send-email/question-submitted', async (req, res) => {
+  try {
+    const { userName, userEmail, questionId } = req.body;
+
+    if (!userName || !userEmail || !questionId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    const transporter = createTransporter();
+    const frontendUrl = process.env.FRONTEND_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: userEmail,
+      subject: 'Your Legal Question Has Been Received - LawPex',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #d4af37; margin-bottom: 10px;">Question Received!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">We've received your legal question</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello <strong>${userName}</strong>,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              Thank you for submitting your legal question to LawPex. We have received your query and our team is working to provide you with the best possible answer.
+            </p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #27ae60; margin-bottom: 20px;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">What Happens Next?</h3>
+              <ul style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li><strong>Question Review:</strong> Your question has been assigned to an expert lawyer</li>
+                <li><strong>Expert Answer:</strong> The lawyer will provide a comprehensive answer</li>
+                <li><strong>Admin Review:</strong> Our team will review the answer before publishing</li>
+                <li><strong>Notification:</strong> You'll receive an email when your question is answered</li>
+              </ul>
+            </div>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-top: 20px;">
+              You can expect to receive an answer within 24-48 hours. We'll notify you via email once your question has been answered and published.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Question ID:</strong> #${questionId}
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com
+            </p>
+          </div>
+        </div>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    res.json({ 
+      success: true, 
+      message: 'Question submission confirmation email sent successfully.' 
+    });
+
+  } catch (error) {
+    console.error('Error sending question submitted email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to send email. Please try again later.' 
+    });
+  }
+});
+
+// Answer Published Email
+app.post('/api/send-email/answer-published', async (req, res) => {
+  try {
+    const { userName, userEmail, questionId, subject } = req.body;
+
+    if (!userName || !userEmail || !questionId || !subject) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields must be provided' 
+      });
+    }
+
+    const transporter = createTransporter();
+    const frontendUrl = process.env.FRONTEND_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: userEmail,
+      subject: `Your Question Has Been Answered! - ${subject}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #27ae60; margin-bottom: 10px;">Great News! 🎉</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Your Question Has Been Answered</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello <strong>${userName}</strong>,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              Great news! Your legal question <strong>"${subject}"</strong> has been answered by one of our expert lawyers and is now published on our website.
+            </p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #27ae60; margin-bottom: 20px;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">Your Question Has Been Answered!</h3>
+              <p style="color: #34495e; line-height: 1.6;">
+                An expert lawyer has provided a comprehensive answer to your question. You can now view the complete answer on our website.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 25px;">
+              <a href="${frontendUrl}/free-legal-advice/question/${questionId}" style="background-color: #27ae60; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
+                View Your Answer
+              </a>
+            </div>
+            
+            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin-top: 25px;">
+              <h3 style="color: #27ae60; margin-top: 0;">What's Next?</h3>
+              <ul style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li>Read the expert answer to your question</li>
+                <li>If you need more clarification, you can ask follow-up questions</li>
+                <li>Consider consulting with the lawyer directly for detailed advice</li>
+                <li>Share your experience with others who might have similar questions</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Question ID:</strong> #${questionId}
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com
+            </p>
+          </div>
+        </div>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    res.json({ 
+      success: true, 
+      message: 'Answer published notification email sent successfully to user.' 
+    });
+
+  } catch (error) {
+    console.error('Error sending answer published email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to send email. Please try again later.' 
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
