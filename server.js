@@ -101,6 +101,32 @@ const emailTemplates = {
     `
   }),
 
+  dynamicForm: (data) => ({
+    subject: `New Legal Consultation Request from ${data.name} - ${data.pageType || 'Legal Section'}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2c3e50;">New Legal Consultation Request</h2>
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="color: #34495e; margin-top: 0;">Client Information</h3>
+          <p><strong>Name:</strong> ${data.name}</p>
+          <p><strong>Email:</strong> ${data.email}</p>
+          <p><strong>Mobile Number:</strong> ${data.mobileNumber}</p>
+          <p><strong>City:</strong> ${data.city}</p>
+        </div>
+        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="color: #27ae60; margin-top: 0;">Source Information</h3>
+          <p><strong>Page Type:</strong> ${data.pageType || 'Legal Section'}</p>
+          ${data.sectionNumber ? `<p><strong>Section Number:</strong> ${data.sectionNumber}</p>` : ''}
+          ${data.sectionTitle ? `<p><strong>Section Title:</strong> ${data.sectionTitle}</p>` : ''}
+          ${data.pageUrl ? `<p><strong>Page URL:</strong> <a href="${data.pageUrl}" style="color: #3498db;">${data.pageUrl}</a></p>` : ''}
+        </div>
+        <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border-radius: 5px;">
+          <p style="margin: 0; color: #856404;"><strong>Action Required:</strong> Please contact the client to discuss their legal needs and connect them with appropriate lawyers.</p>
+        </div>
+      </div>
+    `
+  }),
+
   lawyerSignup: (data) => ({
     subject: `New Lawyer Signup Request from ${data.fullName}`,
     html: `
@@ -526,6 +552,118 @@ app.post('/api/send-email/talk-to-lawyer', async (req, res) => {
 
   } catch (error) {
     console.error('Error sending talk to lawyer email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit your request. Please try again later.' 
+    });
+  }
+});
+
+app.post('/api/send-email/dynamic-form', async (req, res) => {
+  try {
+    const { name, mobileNumber, email, city, pageType, sectionNumber, sectionTitle, pageUrl } = req.body;
+
+    // Validate required fields
+    if (!name || !mobileNumber || !email || !city) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'All required fields (name, mobileNumber, email, city) must be provided' 
+      });
+    }
+
+    const transporter = createTransporter();
+    
+    // Email 1: Send notification to admin
+    const adminTemplate = emailTemplates.dynamicForm(req.body);
+    const adminMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: process.env.EMAIL_TO,
+      subject: adminTemplate.subject,
+      html: adminTemplate.html,
+      replyTo: email
+    };
+
+    // Email 2: Send automated response to the client
+    const clientResponseTemplate = {
+      subject: 'Thank You for Choosing LawPex - We\'ll Connect You with the Right Lawyer',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">Welcome to LawPex!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Connecting You to Trusted Lawyers</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello <strong>${name}</strong>,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              Thank you for choosing LawPex to help you find the right lawyer for your legal needs.
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 20px;">
+              We have received your request and our team is already working to connect you with the best-matched lawyers in <strong>${city}</strong>.
+            </p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #3498db;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">What Happens Next?</h3>
+              <ul style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li><strong>Immediate Review:</strong> Our team will review your requirements</li>
+                <li><strong>Lawyer Matching:</strong> We'll identify the best lawyers in your area</li>
+                <li><strong>Quick Contact:</strong> You'll receive lawyer details within 2-4 hours</li>
+                <li><strong>Free Consultation:</strong> Schedule a consultation with your matched lawyer</li>
+              </ul>
+            </div>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-top: 20px;">
+              Our team will contact you at <strong>${mobileNumber}</strong> to discuss your legal requirements in detail and provide you with the contact information of suitable lawyers.
+            </p>
+          </div>
+          
+          <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="color: #27ae60; margin-top: 0;">Why Choose LawPex?</h3>
+            <ul style="color: #34495e; line-height: 1.6; padding-left: 20px;">
+              <li>Verified and experienced lawyers</li>
+              <li>Quick response time (2-4 hours)</li>
+              <li>Free initial consultation</li>
+              <li>Transparent pricing</li>
+              <li>Client satisfaction guarantee</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Need immediate assistance?</strong><br>
+              Call us at <strong>+91-8750-100-555</strong> or email us at <a href="mailto:contact@lawpex.com" style="color: #3498db;">contact@lawpex.com</a>
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    const clientMailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: clientResponseTemplate.subject,
+      html: clientResponseTemplate.html
+    };
+
+    // Send both emails
+    await transporter.sendMail(adminMailOptions);
+    await transporter.sendMail(clientMailOptions);
+
+    res.json({ 
+      success: true, 
+      message: 'Your request has been submitted successfully. Please check your email for confirmation and next steps.' 
+    });
+
+  } catch (error) {
+    console.error('Error sending dynamic form email:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to submit your request. Please try again later.' 
@@ -1475,7 +1613,15 @@ app.post('/api/send-email/answer-published', async (req, res) => {
     }
 
     const transporter = createTransporter();
-    const frontendUrl = process.env.FRONTEND_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    // Ensure frontend URL is valid - remove any wildcards or invalid characters
+    let frontendUrl = process.env.FRONTEND_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    // Clean up URL - remove wildcards, ensure it starts with http:// or https://
+    frontendUrl = frontendUrl.replace(/\*/g, '').trim();
+    if (!frontendUrl.startsWith('http://') && !frontendUrl.startsWith('https://')) {
+      frontendUrl = 'https://darkseagreen-mink-776641.hostingersite.com';
+    }
+    // Remove trailing slash if present
+    frontendUrl = frontendUrl.replace(/\/$/, '');
     
     const mailOptions = {
       from: process.env.EMAIL_FROM,
