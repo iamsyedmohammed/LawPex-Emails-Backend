@@ -94,6 +94,14 @@ const emailTemplates = {
           <p><strong>City:</strong> ${data.city}</p>
           <p><strong>Agreed to Terms:</strong> ${data.agreeToTerms ? 'Yes' : 'No'}</p>
         </div>
+        ${data.legalIssue ? `
+        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="color: #27ae60; margin-top: 0;">Legal Issue Details</h3>
+          <p><strong>Legal Issue:</strong> ${data.legalIssue || 'Not specified'}</p>
+          <p><strong>Sub-Issue:</strong> ${data.subIssue || 'Not specified'}</p>
+          ${data.comments ? `<p><strong>Additional Comments:</strong><br>${(data.comments || '').replace(/\n/g, '<br>')}</p>` : ''}
+        </div>
+        ` : ''}
         <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border-radius: 5px;">
           <p style="margin: 0; color: #856404;"><strong>Action Required:</strong> Please contact the client to discuss their legal needs and connect them with appropriate lawyers.</p>
         </div>
@@ -449,7 +457,7 @@ app.post('/api/send-email/ask-free-question', async (req, res) => {
 
 app.post('/api/send-email/talk-to-lawyer', async (req, res) => {
   try {
-    const { name, mobileNumber, email, city, agreeToTerms } = req.body;
+    const { name, mobileNumber, email, city, agreeToTerms, legalIssue, subIssue, comments } = req.body;
 
     // Validate required fields
     if (!name || !mobileNumber || !email || !city || !agreeToTerms) {
