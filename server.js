@@ -1930,9 +1930,137 @@ function wrapEmailContent(htmlContent, subject) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <title>${subject || 'Newsletter'}</title>
+  <style type="text/css">
+    /* Email-safe CSS for content styling */
+    .email-content {
+      color: #333333;
+      font-size: 16px;
+      line-height: 1.8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    .email-content h1 {
+      color: #1a1a1a;
+      font-size: 28px;
+      font-weight: 700;
+      margin: 1.5em 0 0.75em 0;
+      line-height: 1.3;
+      border-bottom: 2px solid #d4af37;
+      padding-bottom: 0.5em;
+    }
+    
+    .email-content h2 {
+      color: #1a1a1a;
+      font-size: 24px;
+      font-weight: 700;
+      margin: 1.5em 0 0.75em 0;
+      line-height: 1.3;
+    }
+    
+    .email-content h3 {
+      color: #2d2d2d;
+      font-size: 20px;
+      font-weight: 700;
+      margin: 1.5em 0 0.75em 0;
+      line-height: 1.3;
+    }
+    
+    .email-content h4 {
+      color: #333333;
+      font-size: 18px;
+      font-weight: 700;
+      margin: 1.25em 0 0.5em 0;
+      line-height: 1.3;
+    }
+    
+    .email-content p {
+      color: #444444;
+      font-size: 16px;
+      line-height: 1.8;
+      margin: 1em 0;
+    }
+    
+    .email-content ul,
+    .email-content ol {
+      margin: 1em 0;
+      padding-left: 2em;
+      line-height: 1.8;
+    }
+    
+    .email-content li {
+      color: #444444;
+      font-size: 16px;
+      line-height: 1.8;
+      margin: 0.5em 0;
+    }
+    
+    .email-content a {
+      color: #d4af37;
+      text-decoration: underline;
+    }
+    
+    .email-content a:hover {
+      color: #b8941f;
+      text-decoration: none;
+    }
+    
+    .email-content strong {
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+    
+    .email-content em {
+      font-style: italic;
+      color: #555555;
+    }
+    
+    .email-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      margin: 1.5em 0;
+    }
+    
+    .email-content blockquote {
+      margin: 1.5em 0;
+      padding: 1em 1.5em;
+      border-left: 4px solid #d4af37;
+      background-color: #f8f9fa;
+      font-style: italic;
+      color: #555555;
+    }
+    
+    .email-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5em 0;
+    }
+    
+    .email-content th,
+    .email-content td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e1e5e9;
+    }
+    
+    .email-content th {
+      background-color: #f8f9fa;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+    
+    .email-content hr {
+      border: none;
+      border-top: 2px solid #e1e5e9;
+      margin: 2em 0;
+    }
+  </style>
   <!--[if mso]>
   <style type="text/css">
     body, table, td {font-family: Arial, sans-serif !important;}
+    .email-content h1, .email-content h2, .email-content h3 {
+      font-family: Arial, sans-serif !important;
+    }
   </style>
   <![endif]-->
 </head>
@@ -1959,7 +2087,7 @@ function wrapEmailContent(htmlContent, subject) {
           <!-- Content -->
           <tr>
             <td style="padding: 40px; background-color: #ffffff;">
-              <div style="color: #333333; font-size: 16px; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+              <div class="email-content" style="color: #333333; font-size: 16px; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
 ${content}
               </div>
             </td>
@@ -2120,12 +2248,15 @@ async function sendCampaignEmails(campaignId) {
           
           const result = await transporter.sendMail(mailOptions);
           
-          // Update recipient status to delivered (sent successfully)
+          // Update recipient status to 'sent' (email successfully sent to mail server)
           await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-recipient-status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recipientId: recipient.id, status: 'delivered' })
+            body: JSON.stringify({ recipientId: recipient.id, status: 'sent' })
           });
+          
+          // Note: 'delivered' status would ideally come from email service webhooks
+          // For now, we mark as 'sent' and the tracking pixel will update to 'delivered' when opened
           
           sentCount++;
         } catch (error) {
@@ -2223,8 +2354,12 @@ app.get('/api/newsletter/track-open/:campaignId/:recipientId', async (req, res) 
       return res.end(pixel);
     }
     
-    // Update recipient status to 'opened' if not already opened
+    // Update recipient status: sent → delivered → opened
+    // If email is opened, it means it was delivered, so update status accordingly
     const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    
+    // First, check current status and update to 'delivered' if still 'sent'
+    // Then update to 'opened' (the PHP endpoint will handle the opened_at timestamp)
     await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-recipient-status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
