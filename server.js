@@ -1925,76 +1925,112 @@ function addInlineStylesToContent(htmlContent) {
   
   let styledContent = htmlContent;
   
-  // Style h1 elements
+  // Style h1 elements (only if they don't already have style attribute)
   styledContent = styledContent.replace(
-    /<h1([^>]*)>/gi,
-    '<h1$1 style="color: #1a1a1a; font-size: 28px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; border-bottom: 2px solid #d4af37; padding-bottom: 0.5em; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    /<h1(?![^>]*style=)([^>]*)>/gi,
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<h1${space}${attrs} style="color: #1a1a1a; font-size: 28px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; border-bottom: 2px solid #d4af37; padding-bottom: 0.5em; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
-  // Style h2 elements
+  // Style h2 elements (only if they don't already have style attribute)
   styledContent = styledContent.replace(
-    /<h2([^>]*)>/gi,
-    '<h2$1 style="color: #1a1a1a; font-size: 24px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    /<h2(?![^>]*style=)([^>]*)>/gi,
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<h2${space}${attrs} style="color: #1a1a1a; font-size: 24px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
-  // Style h3 elements
+  // Style h3 elements (only if they don't already have style attribute)
   styledContent = styledContent.replace(
-    /<h3([^>]*)>/gi,
-    '<h3$1 style="color: #2d2d2d; font-size: 20px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    /<h3(?![^>]*style=)([^>]*)>/gi,
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<h3${space}${attrs} style="color: #2d2d2d; font-size: 20px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
-  // Style h4 elements
+  // Style h4 elements (only if they don't already have style attribute)
   styledContent = styledContent.replace(
-    /<h4([^>]*)>/gi,
-    '<h4$1 style="color: #333333; font-size: 18px; font-weight: 700; margin: 1.25em 0 0.5em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    /<h4(?![^>]*style=)([^>]*)>/gi,
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<h4${space}${attrs} style="color: #333333; font-size: 18px; font-weight: 700; margin: 1.25em 0 0.5em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
   // Style p elements (only if they don't already have style attribute)
   styledContent = styledContent.replace(
     /<p(?![^>]*style=)([^>]*)>/gi,
-    '<p$1 style="color: #444444; font-size: 16px; line-height: 1.8; margin: 1em 0; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<p${space}${attrs} style="color: #444444; font-size: 16px; line-height: 1.8; margin: 1em 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
   // Style ul elements
   styledContent = styledContent.replace(
     /<ul(?![^>]*style=)([^>]*)>/gi,
-    '<ul$1 style="margin: 1em 0; padding-left: 2em; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<ul${space}${attrs} style="margin: 1em 0; padding-left: 2em; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
   // Style ol elements
   styledContent = styledContent.replace(
     /<ol(?![^>]*style=)([^>]*)>/gi,
-    '<ol$1 style="margin: 1em 0; padding-left: 2em; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<ol${space}${attrs} style="margin: 1em 0; padding-left: 2em; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
   // Style li elements
   styledContent = styledContent.replace(
     /<li(?![^>]*style=)([^>]*)>/gi,
-    '<li$1 style="color: #444444; font-size: 16px; line-height: 1.8; margin: 0.5em 0; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<li${space}${attrs} style="color: #444444; font-size: 16px; line-height: 1.8; margin: 0.5em 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
   // Style a elements (only if they don't already have style attribute)
   styledContent = styledContent.replace(
     /<a(?![^>]*style=)([^>]*)>/gi,
-    '<a$1 style="color: #d4af37; text-decoration: underline; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<a${space}${attrs} style="color: #d4af37; text-decoration: underline; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">`;
+    }
   );
   
   // Style strong elements
   styledContent = styledContent.replace(
     /<strong(?![^>]*style=)([^>]*)>/gi,
-    '<strong$1 style="font-weight: 700; color: #1a1a1a;">'
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<strong${space}${attrs} style="font-weight: 700; color: #1a1a1a;">`;
+    }
   );
   
   // Style em elements
   styledContent = styledContent.replace(
     /<em(?![^>]*style=)([^>]*)>/gi,
-    '<em$1 style="font-style: italic; color: #555555;">'
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<em${space}${attrs} style="font-style: italic; color: #555555;">`;
+    }
   );
   
   // Style img elements
   styledContent = styledContent.replace(
     /<img(?![^>]*style=)([^>]*)>/gi,
-    '<img$1 style="max-width: 100%; height: auto; border-radius: 6px; margin: 1.5em 0;">'
+    (match, attrs) => {
+      const space = attrs.trim() ? ' ' : '';
+      return `<img${space}${attrs} style="max-width: 100%; height: auto; border-radius: 6px; margin: 1.5em 0;">`;
+    }
   );
   
   return styledContent;
