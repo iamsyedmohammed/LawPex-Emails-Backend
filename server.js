@@ -1703,6 +1703,104 @@ app.post('/api/send-email/answer-published', async (req, res) => {
   }
 });
 
+// Newsletter Thank You Email Endpoint
+app.post('/api/send-email/newsletter-thank-you', async (req, res) => {
+  try {
+    const { email, source } = req.body;
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Valid email address is required' 
+      });
+    }
+
+    const transporter = createTransporter();
+
+    const thankYouTemplate = {
+      subject: 'Thank You for Subscribing to LawPex Newsletter!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2c3e50; margin-bottom: 10px;">Welcome to LawPex Newsletter!</h1>
+            <p style="color: #7f8c8d; font-size: 16px;">Stay Updated with Legal Insights</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px;">
+            <p style="color: #2c3e50; font-size: 18px; margin-bottom: 20px;">
+              Hello,
+            </p>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-bottom: 15px;">
+              Thank you for subscribing to the LawPex newsletter! We're excited to have you as part of our community.
+            </p>
+            
+            <div style="background-color: white; padding: 20px; border-radius: 5px; border-left: 4px solid #d4af37;">
+              <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">What to Expect:</h3>
+              <ul style="color: #34495e; line-height: 1.8; padding-left: 20px;">
+                <li><strong>Legal Updates:</strong> Stay informed about the latest changes in Indian law</li>
+                <li><strong>Expert Insights:</strong> Get valuable legal advice from experienced lawyers</li>
+                <li><strong>Case Studies:</strong> Learn from real-world legal scenarios</li>
+                <li><strong>Legal Tips:</strong> Practical advice to protect your rights</li>
+                <li><strong>Exclusive Content:</strong> Access to premium legal resources</li>
+              </ul>
+            </div>
+            
+            <p style="color: #34495e; line-height: 1.6; margin-top: 20px;">
+              Our newsletter is delivered directly to your inbox, keeping you informed about important legal developments, expert opinions, and practical legal guidance.
+            </p>
+          </div>
+          
+          <div style="background-color: #fff8e8; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Why LawPex?</h3>
+            <ul style="color: #34495e; line-height: 1.6; padding-left: 20px;">
+              <li>Trusted by thousands of users across India</li>
+              <li>Expert legal guidance from verified lawyers</li>
+              <li>Comprehensive legal resources and information</li>
+              <li>Free legal advice and consultation services</li>
+              <li>Regular updates on legal matters</li>
+            </ul>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+              <strong>Need immediate legal assistance?</strong><br>
+              Call us at <strong>+91-8750-100-555</strong> or email us at <a href="mailto:contact@lawpex.com" style="color: #d4af37;">contact@lawpex.com</a>
+            </p>
+            <p style="color: #95a5a6; font-size: 14px;">
+              <strong>Thanks and Regards,</strong><br>
+              Team LawPex.com
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: thankYouTemplate.subject,
+      html: thankYouTemplate.html
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ 
+      success: true, 
+      message: 'Thank you email sent successfully' 
+    });
+
+  } catch (error) {
+    console.error('Error sending newsletter thank you email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to send email. Please try again later.' 
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
