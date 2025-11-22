@@ -1898,61 +1898,16 @@ app.post('/api/newsletter/send-campaign', async (req, res) => {
 
 // Helper function to wrap email content in styled template
 function wrapEmailContent(htmlContent, subject) {
-  return `
-<!DOCTYPE html>
+  // Ensure htmlContent is a string and not escaped
+  const content = String(htmlContent || '').trim();
+  
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
-  <style type="text/css">
-    /* Email-safe CSS */
-    .email-content h1, .email-content h2, .email-content h3 {
-      color: #111827;
-      margin-top: 1.5em;
-      margin-bottom: 0.75em;
-      font-weight: 700;
-      line-height: 1.3;
-    }
-    .email-content h1 { font-size: 2em; }
-    .email-content h2 { font-size: 1.75em; }
-    .email-content h3 { font-size: 1.5em; }
-    .email-content p {
-      margin-bottom: 1.2em;
-      color: #4b5563;
-    }
-    .email-content a {
-      color: #d4af37;
-      text-decoration: underline;
-    }
-    .email-content img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-      margin: 1.5em auto;
-    }
-    .email-content ul, .email-content ol {
-      margin: 1.2em 0;
-      padding-left: 2em;
-    }
-    .email-content li {
-      margin-bottom: 0.6em;
-    }
-    .email-content table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1.5em 0;
-    }
-    .email-content table th,
-    .email-content table td {
-      padding: 12px;
-      border: 1px solid #e5e7eb;
-    }
-    .email-content table th {
-      background-color: #f8f9fa;
-      font-weight: 700;
-    }
-  </style>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>${subject || 'Newsletter'}</title>
   <!--[if mso]>
   <style type="text/css">
     body, table, td {font-family: Arial, sans-serif !important;}
@@ -1982,8 +1937,8 @@ function wrapEmailContent(htmlContent, subject) {
           <!-- Content -->
           <tr>
             <td style="padding: 40px; background-color: #ffffff;">
-              <div class="email-content" style="color: #333333; font-size: 16px; line-height: 1.7;">
-                ${htmlContent}
+              <div style="color: #333333; font-size: 16px; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+${content}
               </div>
             </td>
           </tr>
@@ -2013,8 +1968,7 @@ function wrapEmailContent(htmlContent, subject) {
     </tr>
   </table>
 </body>
-</html>
-  `;
+</html>`;
 }
 
 // Helper function to inject tracking pixel
