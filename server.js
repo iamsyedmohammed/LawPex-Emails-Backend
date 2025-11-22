@@ -1972,8 +1972,18 @@ async function sendCampaignEmails(campaignId) {
     const recipientsResponse = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=get-campaign-recipients&campaignId=${campaignId}&status=pending`);
     const recipientsData = await recipientsResponse.json();
     
-    if (!recipientsData.success || !recipientsData.data.length) {
-      throw new Error('No recipients found');
+    if (!recipientsData.success) {
+      throw new Error('Failed to fetch recipients: ' + (recipientsData.error || 'Unknown error'));
+    }
+    
+    if (!recipientsData.data || recipientsData.data.length === 0) {
+      // Update campaign status back to draft if no recipients
+      await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId, status: 'draft' })
+      });
+      throw new Error('No pending recipients found for this campaign. Please add recipients first.');
     }
     
     const recipients = recipientsData.data;
