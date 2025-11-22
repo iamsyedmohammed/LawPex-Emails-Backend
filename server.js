@@ -2130,8 +2130,20 @@ app.get('/api/newsletter/track-click/:campaignId/:recipientId', async (req, res)
 
     if (recipientId != 0) {
       // Record click in database
-      const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
-      await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=track-click&campaignId=${campaignId}&recipientId=${recipientId}&url=${encodeURIComponent(url)}`);
+      try {
+        const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+        const trackResponse = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=track-click&campaignId=${campaignId}&recipientId=${recipientId}&url=${encodeURIComponent(url)}`);
+        
+        if (!trackResponse.ok) {
+          console.error(`Failed to track click: ${trackResponse.status} ${trackResponse.statusText}`);
+        } else {
+          const trackData = await trackResponse.text();
+          console.log(`Click tracked successfully for campaign ${campaignId}, recipient ${recipientId}`);
+        }
+      } catch (trackError) {
+        console.error('Error calling PHP API to track click:', trackError);
+        // Don't block the redirect even if tracking fails
+      }
     }
     
     // Redirect to actual URL
