@@ -1854,10 +1854,15 @@ app.post('/api/newsletter/send-campaign', async (req, res) => {
       
       const campaign = campaignData.data;
       
-      // Inject tracking pixel and process links
+      // Process links first
       let htmlContent = campaign.html_content;
-      htmlContent = injectTrackingPixel(htmlContent, campaignId, 0); // 0 for test
       htmlContent = processLinks(htmlContent, campaignId, 0);
+      
+      // Wrap content in styled email template
+      htmlContent = wrapEmailContent(htmlContent, campaign.subject);
+      
+      // Inject tracking pixel after wrapping (so it's in the body tag)
+      htmlContent = injectTrackingPixel(htmlContent, campaignId, 0); // 0 for test
       
       const mailOptions = {
         from: process.env.EMAIL_FROM,
@@ -1890,6 +1895,127 @@ app.post('/api/newsletter/send-campaign', async (req, res) => {
     });
   }
 });
+
+// Helper function to wrap email content in styled template
+function wrapEmailContent(htmlContent, subject) {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+  <style type="text/css">
+    /* Email-safe CSS */
+    .email-content h1, .email-content h2, .email-content h3 {
+      color: #111827;
+      margin-top: 1.5em;
+      margin-bottom: 0.75em;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .email-content h1 { font-size: 2em; }
+    .email-content h2 { font-size: 1.75em; }
+    .email-content h3 { font-size: 1.5em; }
+    .email-content p {
+      margin-bottom: 1.2em;
+      color: #4b5563;
+    }
+    .email-content a {
+      color: #d4af37;
+      text-decoration: underline;
+    }
+    .email-content img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 1.5em auto;
+    }
+    .email-content ul, .email-content ol {
+      margin: 1.2em 0;
+      padding-left: 2em;
+    }
+    .email-content li {
+      margin-bottom: 0.6em;
+    }
+    .email-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5em 0;
+    }
+    .email-content table th,
+    .email-content table td {
+      padding: 12px;
+      border: 1px solid #e5e7eb;
+    }
+    .email-content table th {
+      background-color: #f8f9fa;
+      font-weight: 700;
+    }
+  </style>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td {font-family: Arial, sans-serif !important;}
+  </style>
+  <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 30px 40px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); border-radius: 8px 8px 0 0;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td>
+                    <h1 style="margin: 0; color: #d4af37; font-size: 28px; font-weight: 700; text-align: center; letter-spacing: 1px;">
+                      LawPex Newsletter
+                    </h1>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px; background-color: #ffffff;">
+              <div class="email-content" style="color: #333333; font-size: 16px; line-height: 1.7;">
+                ${htmlContent}
+              </div>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px 40px; background-color: #f8f9fa; border-top: 1px solid #e1e5e9; border-radius: 0 0 8px 8px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align: center;">
+                    <p style="margin: 0 0 10px 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                      <strong style="color: #333333;">LawPex</strong><br>
+                      Your Trusted Legal Partner
+                    </p>
+                    <p style="margin: 0; color: #999999; font-size: 12px;">
+                      This email was sent to you because you subscribed to our newsletter.<br>
+                      <a href="#" style="color: #d4af37; text-decoration: underline;">Unsubscribe</a> | 
+                      <a href="#" style="color: #d4af37; text-decoration: underline;">Update Preferences</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
 
 // Helper function to inject tracking pixel
 function injectTrackingPixel(html, campaignId, recipientId) {
@@ -1999,10 +2125,15 @@ async function sendCampaignEmails(campaignId) {
       
       await Promise.all(batch.map(async (recipient) => {
         try {
-          // Inject tracking pixel and process links
+          // Process links first
           let htmlContent = campaign.html_content;
-          htmlContent = injectTrackingPixel(htmlContent, campaignId, recipient.id);
           htmlContent = processLinks(htmlContent, campaignId, recipient.id);
+          
+          // Wrap content in styled email template
+          htmlContent = wrapEmailContent(htmlContent, campaign.subject);
+          
+          // Inject tracking pixel after wrapping (so it's in the body tag)
+          htmlContent = injectTrackingPixel(htmlContent, campaignId, recipient.id);
           
           const mailOptions = {
             from: process.env.EMAIL_FROM,
