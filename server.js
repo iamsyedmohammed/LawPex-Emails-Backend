@@ -1801,6 +1801,368 @@ app.post('/api/send-email/newsletter-thank-you', async (req, res) => {
   }
 });
 
+// ==================== NEWSLETTER CAMPAIGN ENDPOINTS ====================
+
+// Create newsletter campaign
+app.post('/api/newsletter/create-campaign', async (req, res) => {
+  try {
+    const { subject, content, htmlContent, scheduledAt } = req.body;
+    
+    if (!subject || !htmlContent) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subject and HTML content are required'
+      });
+    }
+
+    // Call PHP API to create campaign
+    const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    const response = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=create-campaign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject, content, htmlContent, scheduledAt })
+    });
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Error creating campaign:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create campaign'
+    });
+  }
+});
+
+// Send newsletter campaign
+app.post('/api/newsletter/send-campaign', async (req, res) => {
+  try {
+    const { campaignId, testEmail } = req.body;
+    
+    if (testEmail) {
+      // Send test email
+      const transporter = createTransporter();
+      const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+      
+      // Get campaign details
+      const campaignResponse = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=get-campaign&campaignId=${campaignId}`);
+      const campaignData = await campaignResponse.json();
+      
+      if (!campaignData.success) {
+        return res.status(404).json({ success: false, message: 'Campaign not found' });
+      }
+      
+      const campaign = campaignData.data;
+      
+      // Inject tracking pixel and process links
+      let htmlContent = campaign.html_content;
+      htmlContent = injectTrackingPixel(htmlContent, campaignId, 0); // 0 for test
+      htmlContent = processLinks(htmlContent, campaignId, 0);
+      
+      const mailOptions = {
+        from: process.env.EMAIL_FROM,
+        to: testEmail,
+        subject: campaign.subject,
+        html: htmlContent
+      };
+      
+      await transporter.sendMail(mailOptions);
+      return res.json({ success: true, message: 'Test email sent successfully' });
+    }
+
+    // Start sending campaign to all recipients
+    res.json({
+      success: true,
+      message: 'Campaign sending started. This may take a few minutes.',
+      campaignId: campaignId
+    });
+    
+    // Send emails asynchronously (don't block response)
+    sendCampaignEmails(campaignId).catch(err => {
+      console.error('Error sending campaign emails:', err);
+    });
+    
+  } catch (error) {
+    console.error('Error sending campaign:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send campaign'
+    });
+  }
+});
+
+// Helper function to inject tracking pixel
+function injectTrackingPixel(html, campaignId, recipientId) {
+  const trackingUrl = `${process.env.BACKEND_URL || 'https://law-pex-emails-backend.vercel.app'}/api/newsletter/track-open/${campaignId}/${recipientId}`;
+  const pixel = `<img src="${trackingUrl}" width="1" height="1" style="display:none;" alt="" />`;
+  
+  // Insert before closing body tag, or at the end if no body tag
+  if (html.includes('</body>')) {
+    return html.replace('</body>', `${pixel}</body>`);
+  }
+  return html + pixel;
+}
+
+// Helper function to process links for click tracking
+function processLinks(html, campaignId, recipientId) {
+  const backendUrl = process.env.BACKEND_URL || 'https://law-pex-emails-backend.vercel.app';
+  
+  // Replace all href attributes with tracking URLs
+  return html.replace(/href=["']([^"']+)["']/gi, (match, url) => {
+    // Skip mailto: and javascript: links
+    if (url.startsWith('mailto:') || url.startsWith('javascript:')) {
+      return match;
+    }
+    const trackedUrl = `${backendUrl}/api/newsletter/track-click/${campaignId}/${recipientId}?url=${encodeURIComponent(url)}`;
+    return `href="${trackedUrl}"`;
+  });
+}
+
+// Async function to send campaign emails
+async function sendCampaignEmails(campaignId) {
+  const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+  const transporter = createTransporter();
+  
+  // Helper function to update campaign metrics
+  const updateCampaignMetrics = async () => {
+    try {
+      const metricsResponse = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=get-campaign-metrics&campaignId=${campaignId}`);
+      const metricsData = await metricsResponse.json();
+      
+      if (metricsData.success && metricsData.metrics) {
+        const m = metricsData.metrics;
+        await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-metrics`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            campaignId: campaignId,
+            emailsSent: m.emails_sent || 0,
+            emailsDelivered: m.emails_delivered || 0,
+            emailsOpened: m.emails_opened || 0,
+            emailsClicked: m.emails_clicked || 0,
+            emailsBounced: m.emails_bounced || 0,
+            emailsFailed: m.emails_failed || 0
+          })
+        });
+      }
+    } catch (error) {
+      console.error('Error updating campaign metrics:', error);
+    }
+  };
+  
+  try {
+    // Get campaign details
+    const campaignResponse = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=get-campaign&campaignId=${campaignId}`);
+    const campaignData = await campaignResponse.json();
+    
+    if (!campaignData.success) {
+      throw new Error('Campaign not found');
+    }
+    
+    const campaign = campaignData.data;
+    
+    // Update campaign status to 'sending'
+    await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId, status: 'sending' })
+    });
+    
+    // Get all pending recipients
+    const recipientsResponse = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=get-campaign-recipients&campaignId=${campaignId}&status=pending`);
+    const recipientsData = await recipientsResponse.json();
+    
+    if (!recipientsData.success || !recipientsData.data.length) {
+      throw new Error('No recipients found');
+    }
+    
+    const recipients = recipientsData.data;
+    let sentCount = 0;
+    let failedCount = 0;
+    
+    // Send emails in batches (rate limiting: 10 emails per second)
+    const batchSize = 10;
+    const delay = 1000; // 1 second between batches
+    
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+      
+      await Promise.all(batch.map(async (recipient) => {
+        try {
+          // Inject tracking pixel and process links
+          let htmlContent = campaign.html_content;
+          htmlContent = injectTrackingPixel(htmlContent, campaignId, recipient.id);
+          htmlContent = processLinks(htmlContent, campaignId, recipient.id);
+          
+          const mailOptions = {
+            from: process.env.EMAIL_FROM,
+            to: recipient.email,
+            subject: campaign.subject,
+            html: htmlContent
+          };
+          
+          const result = await transporter.sendMail(mailOptions);
+          
+          // Update recipient status to delivered (sent successfully)
+          await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-recipient-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipientId: recipient.id, status: 'delivered' })
+          });
+          
+          sentCount++;
+        } catch (error) {
+          console.error(`Error sending to ${recipient.email}:`, error);
+          
+          // Update recipient status to failed
+          await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-recipient-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              recipientId: recipient.id, 
+              status: 'failed',
+              errorMessage: error.message 
+            })
+          });
+          
+          failedCount++;
+        }
+      }));
+      
+      // Wait before next batch (except for last batch)
+      if (i + batchSize < recipients.length) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    // Update campaign metrics
+    await updateCampaignMetrics();
+    
+    // Update campaign status to 'sent' and update counts
+    await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        campaignId, 
+        status: 'sent',
+        emailsSent: sentCount,
+        sentAt: new Date().toISOString()
+      })
+    });
+    
+    console.log(`Campaign ${campaignId} sent: ${sentCount} successful, ${failedCount} failed`);
+    
+  } catch (error) {
+    console.error('Error in sendCampaignEmails:', error);
+    
+    // Update campaign status to failed
+    await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId, status: 'failed' })
+    });
+  }
+}
+
+// Track email open (pixel tracking)
+app.get('/api/newsletter/track-open/:campaignId/:recipientId', async (req, res) => {
+  try {
+    const { campaignId, recipientId } = req.params;
+    
+    if (recipientId == 0) {
+      // Test email, don't track
+      const pixel = Buffer.from(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+        'base64'
+      );
+      res.writeHead(200, {
+        'Content-Type': 'image/gif',
+        'Content-Length': pixel.length,
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      });
+      return res.end(pixel);
+    }
+    
+    // Update recipient status to 'opened' if not already opened
+    const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-recipient-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipientId: parseInt(recipientId), status: 'opened' })
+    });
+    
+    // Return 1x1 transparent pixel
+    const pixel = Buffer.from(
+      'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+      'base64'
+    );
+    res.writeHead(200, {
+      'Content-Type': 'image/gif',
+      'Content-Length': pixel.length,
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    });
+    res.end(pixel);
+  } catch (error) {
+    console.error('Error tracking open:', error);
+    res.status(500).end();
+  }
+});
+
+// Track link click
+app.get('/api/newsletter/track-click/:campaignId/:recipientId', async (req, res) => {
+  try {
+    const { campaignId, recipientId } = req.params;
+    const { url } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({ success: false, message: 'URL required' });
+    }
+
+    if (recipientId != 0) {
+      // Record click in database
+      const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+      await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=track-click&campaignId=${campaignId}&recipientId=${recipientId}&url=${encodeURIComponent(url)}`);
+    }
+    
+    // Redirect to actual URL
+    res.redirect(decodeURIComponent(url));
+  } catch (error) {
+    console.error('Error tracking click:', error);
+    res.status(500).json({ success: false, message: 'Failed to track click' });
+  }
+});
+
+// Get campaign metrics
+app.get('/api/newsletter/campaign-metrics/:campaignId', async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    
+    const response = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=get-campaign-metrics&campaignId=${campaignId}`);
+    const data = await response.json();
+    
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching metrics:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch metrics' });
+  }
+});
+
+// Get overall newsletter metrics
+app.get('/api/newsletter/overall-metrics', async (req, res) => {
+  try {
+    const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    
+    const response = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=get-overall-metrics`);
+    const data = await response.json();
+    
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching overall metrics:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch metrics' });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
