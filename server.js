@@ -1885,6 +1885,15 @@ app.post('/api/newsletter/send-campaign', async (req, res) => {
     // Send emails asynchronously (don't block response)
     sendCampaignEmails(campaignId).catch(err => {
       console.error('Error sending campaign emails:', err);
+      // Ensure status is updated even if there's an error
+      const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+      fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId, status: 'failed' })
+      }).catch(updateErr => {
+        console.error('Error updating campaign status to failed:', updateErr);
+      });
     });
     
   } catch (error) {
@@ -2134,28 +2143,51 @@ async function sendCampaignEmails(campaignId) {
     await updateCampaignMetrics();
     
     // Update campaign status to 'sent' and update counts
-    await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        campaignId, 
-        status: 'sent',
-        emailsSent: sentCount,
-        sentAt: new Date().toISOString()
-      })
-    });
-    
-    console.log(`Campaign ${campaignId} sent: ${sentCount} successful, ${failedCount} failed`);
+    try {
+      const statusUpdateResponse = await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          campaignId, 
+          status: 'sent',
+          emailsSent: sentCount,
+          sentAt: new Date().toISOString()
+        })
+      });
+      
+      const statusUpdateData = await statusUpdateResponse.json();
+      if (!statusUpdateData.success) {
+        console.error('Failed to update campaign status to sent:', statusUpdateData.error);
+      } else {
+        console.log(`Campaign ${campaignId} sent: ${sentCount} successful, ${failedCount} failed`);
+      }
+    } catch (statusError) {
+      console.error('Error updating campaign status to sent:', statusError);
+      // Try one more time
+      try {
+        await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campaignId, status: 'sent' })
+        });
+      } catch (retryError) {
+        console.error('Retry failed to update campaign status:', retryError);
+      }
+    }
     
   } catch (error) {
     console.error('Error in sendCampaignEmails:', error);
     
-    // Update campaign status to failed
-    await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campaignId, status: 'failed' })
-    });
+    // Update campaign status to failed - ensure this always happens
+    try {
+      await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId, status: 'failed' })
+      });
+    } catch (updateError) {
+      console.error('Failed to update campaign status to failed:', updateError);
+    }
   }
 }
 
