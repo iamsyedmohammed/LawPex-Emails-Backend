@@ -1918,10 +1918,95 @@ app.post('/api/newsletter/send-campaign', async (req, res) => {
   }
 });
 
+// Helper function to add inline styles to email content elements
+function addInlineStylesToContent(htmlContent) {
+  // Use a simple regex-based approach to add inline styles to common elements
+  // This is more reliable for email clients than CSS classes
+  
+  let styledContent = htmlContent;
+  
+  // Style h1 elements
+  styledContent = styledContent.replace(
+    /<h1([^>]*)>/gi,
+    '<h1$1 style="color: #1a1a1a; font-size: 28px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; border-bottom: 2px solid #d4af37; padding-bottom: 0.5em; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style h2 elements
+  styledContent = styledContent.replace(
+    /<h2([^>]*)>/gi,
+    '<h2$1 style="color: #1a1a1a; font-size: 24px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style h3 elements
+  styledContent = styledContent.replace(
+    /<h3([^>]*)>/gi,
+    '<h3$1 style="color: #2d2d2d; font-size: 20px; font-weight: 700; margin: 1.5em 0 0.75em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style h4 elements
+  styledContent = styledContent.replace(
+    /<h4([^>]*)>/gi,
+    '<h4$1 style="color: #333333; font-size: 18px; font-weight: 700; margin: 1.25em 0 0.5em 0; line-height: 1.3; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style p elements (only if they don't already have style attribute)
+  styledContent = styledContent.replace(
+    /<p(?![^>]*style=)([^>]*)>/gi,
+    '<p$1 style="color: #444444; font-size: 16px; line-height: 1.8; margin: 1em 0; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style ul elements
+  styledContent = styledContent.replace(
+    /<ul(?![^>]*style=)([^>]*)>/gi,
+    '<ul$1 style="margin: 1em 0; padding-left: 2em; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style ol elements
+  styledContent = styledContent.replace(
+    /<ol(?![^>]*style=)([^>]*)>/gi,
+    '<ol$1 style="margin: 1em 0; padding-left: 2em; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style li elements
+  styledContent = styledContent.replace(
+    /<li(?![^>]*style=)([^>]*)>/gi,
+    '<li$1 style="color: #444444; font-size: 16px; line-height: 1.8; margin: 0.5em 0; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style a elements (only if they don't already have style attribute)
+  styledContent = styledContent.replace(
+    /<a(?![^>]*style=)([^>]*)>/gi,
+    '<a$1 style="color: #d4af37; text-decoration: underline; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, \'Helvetica Neue\', Arial, sans-serif;">'
+  );
+  
+  // Style strong elements
+  styledContent = styledContent.replace(
+    /<strong(?![^>]*style=)([^>]*)>/gi,
+    '<strong$1 style="font-weight: 700; color: #1a1a1a;">'
+  );
+  
+  // Style em elements
+  styledContent = styledContent.replace(
+    /<em(?![^>]*style=)([^>]*)>/gi,
+    '<em$1 style="font-style: italic; color: #555555;">'
+  );
+  
+  // Style img elements
+  styledContent = styledContent.replace(
+    /<img(?![^>]*style=)([^>]*)>/gi,
+    '<img$1 style="max-width: 100%; height: auto; border-radius: 6px; margin: 1.5em 0;">'
+  );
+  
+  return styledContent;
+}
+
 // Helper function to wrap email content in styled template
 function wrapEmailContent(htmlContent, subject) {
   // Ensure htmlContent is a string and not escaped
   const content = String(htmlContent || '').trim();
+  
+  // Add inline styles to all content elements
+  const styledContent = addInlineStylesToContent(content);
   
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1930,137 +2015,9 @@ function wrapEmailContent(htmlContent, subject) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <title>${subject || 'Newsletter'}</title>
-  <style type="text/css">
-    /* Email-safe CSS for content styling */
-    .email-content {
-      color: #333333;
-      font-size: 16px;
-      line-height: 1.8;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    }
-    
-    .email-content h1 {
-      color: #1a1a1a;
-      font-size: 28px;
-      font-weight: 700;
-      margin: 1.5em 0 0.75em 0;
-      line-height: 1.3;
-      border-bottom: 2px solid #d4af37;
-      padding-bottom: 0.5em;
-    }
-    
-    .email-content h2 {
-      color: #1a1a1a;
-      font-size: 24px;
-      font-weight: 700;
-      margin: 1.5em 0 0.75em 0;
-      line-height: 1.3;
-    }
-    
-    .email-content h3 {
-      color: #2d2d2d;
-      font-size: 20px;
-      font-weight: 700;
-      margin: 1.5em 0 0.75em 0;
-      line-height: 1.3;
-    }
-    
-    .email-content h4 {
-      color: #333333;
-      font-size: 18px;
-      font-weight: 700;
-      margin: 1.25em 0 0.5em 0;
-      line-height: 1.3;
-    }
-    
-    .email-content p {
-      color: #444444;
-      font-size: 16px;
-      line-height: 1.8;
-      margin: 1em 0;
-    }
-    
-    .email-content ul,
-    .email-content ol {
-      margin: 1em 0;
-      padding-left: 2em;
-      line-height: 1.8;
-    }
-    
-    .email-content li {
-      color: #444444;
-      font-size: 16px;
-      line-height: 1.8;
-      margin: 0.5em 0;
-    }
-    
-    .email-content a {
-      color: #d4af37;
-      text-decoration: underline;
-    }
-    
-    .email-content a:hover {
-      color: #b8941f;
-      text-decoration: none;
-    }
-    
-    .email-content strong {
-      font-weight: 700;
-      color: #1a1a1a;
-    }
-    
-    .email-content em {
-      font-style: italic;
-      color: #555555;
-    }
-    
-    .email-content img {
-      max-width: 100%;
-      height: auto;
-      border-radius: 6px;
-      margin: 1.5em 0;
-    }
-    
-    .email-content blockquote {
-      margin: 1.5em 0;
-      padding: 1em 1.5em;
-      border-left: 4px solid #d4af37;
-      background-color: #f8f9fa;
-      font-style: italic;
-      color: #555555;
-    }
-    
-    .email-content table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1.5em 0;
-    }
-    
-    .email-content th,
-    .email-content td {
-      padding: 12px 16px;
-      text-align: left;
-      border-bottom: 1px solid #e1e5e9;
-    }
-    
-    .email-content th {
-      background-color: #f8f9fa;
-      font-weight: 700;
-      color: #1a1a1a;
-    }
-    
-    .email-content hr {
-      border: none;
-      border-top: 2px solid #e1e5e9;
-      margin: 2em 0;
-    }
-  </style>
   <!--[if mso]>
   <style type="text/css">
     body, table, td {font-family: Arial, sans-serif !important;}
-    .email-content h1, .email-content h2, .email-content h3 {
-      font-family: Arial, sans-serif !important;
-    }
   </style>
   <![endif]-->
 </head>
@@ -2087,8 +2044,8 @@ function wrapEmailContent(htmlContent, subject) {
           <!-- Content -->
           <tr>
             <td style="padding: 40px; background-color: #ffffff;">
-              <div class="email-content" style="color: #333333; font-size: 16px; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-${content}
+              <div style="color: #333333; font-size: 16px; line-height: 1.8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+${styledContent}
               </div>
             </td>
           </tr>
