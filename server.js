@@ -1875,6 +1875,19 @@ app.post('/api/newsletter/send-campaign', async (req, res) => {
       return res.json({ success: true, message: 'Test email sent successfully' });
     }
 
+    // Update campaign status to 'sending' BEFORE starting async process
+    const phpUrl = process.env.PHP_API_URL || 'https://darkseagreen-mink-776641.hostingersite.com';
+    try {
+      await fetch(`${phpUrl}/api/newsletterCampaigns.php?action=update-campaign-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId, status: 'sending' })
+      });
+    } catch (statusError) {
+      console.error('Error updating campaign status to sending:', statusError);
+      // Continue anyway - the async function will also try to update it
+    }
+    
     // Start sending campaign to all recipients
     res.json({
       success: true,
